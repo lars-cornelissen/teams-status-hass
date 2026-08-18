@@ -1,0 +1,26 @@
+# Plaats dit bestand in je Home Assistant packages/-map als teams_status.yaml
+# (let op: underscore, geen koppelteken -- HA's package-loader accepteert
+# geen "-" in de bestandsnaam en negeert het bestand anders stilzwijgend).
+#
+# Vereist dat je configuration.yaml het volgende bevat:
+#   homeassistant:
+#     packages: !include_dir_named packages
+#
+# Vervang <YOUR_WEBHOOK_ID> door een zelf gegenereerde GUID
+# (PowerShell: [guid]::NewGuid()) -- gebruik nooit een voorspelbare
+# waarde, dit endpoint is straks publiek bereikbaar.
+
+template:
+  - trigger:
+      - platform: webhook
+        webhook_id: "<YOUR_WEBHOOK_ID>"
+        allowed_methods: ["POST"]
+        local_only: false
+    sensor:
+      - name: "Teams status"
+        unique_id: teams_status
+        state: "{{ trigger.json.status }}"
+    binary_sensor:
+      - name: "Teams in gesprek"
+        unique_id: teams_in_gesprek
+        state: "{{ trigger.json.in_call }}"
