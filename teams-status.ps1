@@ -25,6 +25,24 @@ if (-not (Test-Path $configPath)) {
 }
 . $configPath
 
+# Verwijdert gevoelige gegevens (webhook-URL + het niet-raadbare webhook-ID)
+# uit foutmeldingen, zodat ze nooit in de CLI-logs terechtkomen.
+function Redact-Secret {
+    param([string]$Text)
+    if (-not $Text) { return $Text }
+
+    # Het webhook-ID (het deel na /webhook/) is het echte geheim; het domein
+    # is minder gevoelig maar redacten we voor de zekerheid ook.
+    $webhookId = $null
+    if ($webhookUrl -match '/([^/?#]+)/?$') {
+        $webhookId = $Matches[1]
+    }
+    if ($webhookUrl) { $Text = $Text.Replace($webhookUrl, "[WEBHOOK-URL]") }
+    if ($webhookId)  { $Text = $Text.Replace($webhookId,  "[WEBHOOK-ID]") }
+
+    return $Text
+}
+
 function Get-TeamsStatus {
     param($LatestLogPath)
 
@@ -73,7 +91,6 @@ function Send-StatusUpdate {
 # --- Testmodus: stuur sample-payloads en stop ---
 if ($test) {
     Write-Host "Testmodus: stuur sample-payloads naar de webhook en stop daarna." -ForegroundColor Cyan
-    Write-Host "Webhook-URL: $webhookUrl"
     if ($proxyUrl) { Write-Host "Proxy: $proxyUrl" }
 
     # Statussen zonder gesprek, daarna met gesprek.
@@ -92,7 +109,7 @@ if ($test) {
             Send-StatusUpdate -Status $sample.status -InCall $sample.in_call
             Write-Host "  [OK]" -ForegroundColor Green
         } catch {
-            Write-Host "  [FOUT: $($_.Exception.Message)]" -ForegroundColor Red
+            Write-Host "  [FOUT: $(Redact-Secret $_.Exception.Message)]" -ForegroundColor Red
         }
 
         # Geen sleep na het laatste sample.
@@ -156,7 +173,7 @@ while ($true) {
                 # volgende iteratie opnieuw geprobeerd wordt.
                 Set-Content -Path $stateFile -Value @($status, $inCall.ToString())
             } catch {
-                Write-Warning "Kon status niet versturen: $($_.Exception.Message)"
+                Write-Warning "Kon status niet versturen: $(Redact-Secret $_.Exception.Message)"
             }
         }
     }
